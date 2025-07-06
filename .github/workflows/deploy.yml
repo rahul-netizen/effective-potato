@@ -1,0 +1,89 @@
+name: Build and Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  precommit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Cache pre-commit hooks
+      - name: Cache pre-commit
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-
+          restore-keys: |
+            pre-commit-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          cd ./app/src/backend/
+          pip3 install pre-commit
+          pre-commit install
+
+      - name: Run pre-commit
+        run: |
+          cd ./app/src/backend/
+          pre-commit run -a
+      
+
+  build_deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Build docker containers
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          REPO_PATH: ${{ secrets.REPO_PATH }}
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo "Starting  deployment build.."
+            # cd ${{ secrets.REPO_PATH }}
+            # ./deploy.sh deploy_ci main
+            echo "Building docker containers.."
+
+  health_checks:
+    runs-on: ubuntu-latest
+    needs: build_deploy
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Perform health checks
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            docker ps
+
+            echo "Sleeping for 20 seconds until containers are up.."
+            sleep 20
+
+            BACKEND_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8083/api/v1/health)
+            # FRONTEND_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)
+
+            if [ $BACKEND_CODE != 200 ]
+            then
+                echo "FAILURE with status $BACKEND_CODE, backend not reachable"
+                exit 1
+            fi
+
+            if [ $FRONTEND_CODE != 200 ]
+            then
+                echo "FAILURE with status $FRONTEND_CODE, frontend not reachable"
+                exit 1
+            fi

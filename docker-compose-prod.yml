@@ -1,0 +1,55 @@
+services:
+  api-service:
+    image: api-service:prod
+    container_name: api-service-prod
+    build:
+      context: ./app
+      dockerfile: ./dockerfiles/api.Dockerfile
+    env_file:
+        - ./app/src/backend/etc/.env
+    # volumes:
+    #   - ./common:/app/common
+    healthcheck:
+      test: curl --fail http://localhost:8081/v1/api/health || exit 1
+      interval: 40s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    ports:
+      - 8082:8081
+    networks:
+      - app_network
+    dns:
+      - 8.8.8.8
+    restart: "unless-stopped"
+
+  ui-service:
+    image: ui-service:prod
+    container_name: ui-service-prod
+    build:
+      context: ./app
+      dockerfile: ./dockerfiles/ui.Dockerfile
+    env_file:
+      - ./app/src/frontend/etc/.env
+    # volumes:
+    #   - ./common:/app/common
+    healthcheck:
+      test: curl --fail http://localhost:3000 || exit 1
+      interval: 40s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    ports:
+      - "3001:3000"
+    networks:
+      - app_network
+    dns:
+      - 8.8.8.8
+    restart: "unless-stopped"
+    command: ["npm", "start"]
+    depends_on:
+      - api-service
+
+networks:
+  app_network:
+    external: true
