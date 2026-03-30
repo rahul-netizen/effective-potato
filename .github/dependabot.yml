@@ -9,8 +9,6 @@ updates:
     directory: "./app/src/backend/requirements.txt" # Location of package manifests
     schedule:
       interval: "weekly"
-    reviewers:
-      - "rahul-netizen"
     # Raise all npm pull requests with assignees
     assignees:
       - "rahul-netizen"

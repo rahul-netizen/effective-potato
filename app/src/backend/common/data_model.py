@@ -1,19 +1,16 @@
-from enum import Enum, StrEnum
-from typing import Any, Optional
+from enum import Enum
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict
 
 
 class ExtendedEnum(Enum):
-
     @classmethod
     def list(cls):
         return list(map(lambda c: c.value, cls))
 
 
 class ExtendedStrEnum(Enum):
-
     @classmethod
     def list(cls):
         return list(map(lambda c: c.value, cls))
@@ -51,4 +48,3 @@ class Configuration(BaseModel):
     environment: str
     logger_configuration: LoggerConfiguration
     server_configuration: ServerConfiguration
-

@@ -1,6 +1,5 @@
 """Implements the default configuration"""
 
-import configparser
 import os
 
 from common.data_model import Configuration as ConfigurationModel
@@ -17,11 +16,9 @@ class Configuration:
             "server_configuration": {
                 "host": os.environ.get("HOST", "0.0.0.0"),  # nosec
                 "port": os.environ.get("PORT", "8082"),  # nosec
-            }
+            },
         }
         self._configuration = ConfigurationModel(**config_obj)
-        # self._config = configparser.ConfigParser()  # Read the config.ini file
-        # self._config.read(os.environ.get("CONFIG_INI_PATH"))
 
     def configuration(self):
         """Returns the configuration"""

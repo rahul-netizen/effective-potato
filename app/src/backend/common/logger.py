@@ -1,12 +1,8 @@
 import logging
 import os
-import shutil
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
-from dotenv import load_dotenv
-from pathlib import Path
 
-from common.configuration import Configuration
 from opentelemetry import trace
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
@@ -21,14 +17,10 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
 from opentelemetry.exporter.otlp.proto.http._log_exporter import (
     OTLPLogExporter as OTLPHTTPLogExporter,
 )
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-    OTLPSpanExporter as OTLPHTTPSpanExporter,
-)
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-from opentelemetry.sdk.resources import Attributes, Resource
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from pythonjsonlogger import jsonlogger
 
 # Set up the logger
@@ -54,7 +46,12 @@ class SpanFormatter(logging.Formatter):
 
         # Handle multiline messages by adding trace info to each line
         if record.exc_info:
-            record.exc_text = "\n".join([f"[trace_id: {self._current_trace_id}][span_id: {self._current_span_id}] {line}" for line in self.formatException(record.exc_info).split("\n")])
+            record.exc_text = "\n".join(
+                [
+                    f"[trace_id: {self._current_trace_id}][span_id: {self._current_span_id}] {line}"
+                    for line in self.formatException(record.exc_info).split("\n")
+                ]
+            )
 
         return super().format(record)
 
@@ -77,15 +74,25 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         if "exc_info" in message_dict:
             if isinstance(message_dict["exc_info"], str):
                 lines = message_dict["exc_info"].split("\n")
-                message_dict["exc_info"] = "\n".join([f"[trace_id: {log_record.get('trace_id')}][span_id: {log_record.get('span_id')}] {line}" for line in lines])
+                message_dict["exc_info"] = "\n".join(
+                    [
+                        f"[trace_id: {log_record.get('trace_id')}][span_id: {log_record.get('span_id')}] {line}"
+                        for line in lines
+                    ]
+                )
 
 
 class Logger:
-
     def __init__(self):
 
-        self.ENABLE_OTEL_COLLECTOR = os.getenv("ENABLE_OTEL_COLLECTOR", "False").lower() in ("true", "1", "t")
-        self.ENABLE_JSON_LOGGER = os.getenv("ENABLE_JSON_LOGGER", "False").lower() in ("true", "1", "t")
+        self.ENABLE_OTEL_COLLECTOR = os.getenv(
+            "ENABLE_OTEL_COLLECTOR", "False"
+        ).lower() in ("true", "1", "t")
+        self.ENABLE_JSON_LOGGER = os.getenv("ENABLE_JSON_LOGGER", "False").lower() in (
+            "true",
+            "1",
+            "t",
+        )
         self.logger = logging.getLogger("__name__")
         logs_path = Path("./logs")
         logs_dir_path = logs_path.cwd().parent / "logs"
@@ -94,7 +101,9 @@ class Logger:
         self.tracer = trace.get_tracer(__name__)
         # shell_handler = RichHandler(console=Console(width=terminal_width))
         self.shell_handler = logging.StreamHandler()
-        self.file_handler = TimedRotatingFileHandler(logs_dir_path / "logger.log", when="midnight", backupCount=30)
+        self.file_handler = TimedRotatingFileHandler(
+            logs_dir_path / "logger.log", when="midnight", backupCount=30
+        )
         self.file_handler.suffix = r"%Y-%m-%d.log"
 
         self.fmt_shell = "%(message)s"
@@ -144,19 +153,35 @@ class Logger:
 
         trace.set_tracer_provider(TracerProvider())
         tracer_provider: TracerProvider = trace.get_tracer_provider()
-        otlp_span_exporter = OTLPGRPCSpanExporter(endpoint=f"{OTEL_AGENT_HOSTNAME}:{GRPC_OTEL_AGENT_PORT}", insecure=True, compression=Compression.Gzip.value)
+        otlp_span_exporter = OTLPGRPCSpanExporter(
+            endpoint=f"{OTEL_AGENT_HOSTNAME}:{GRPC_OTEL_AGENT_PORT}",
+            insecure=True,
+            compression=Compression.Gzip.value,
+        )
         # span_processor = BatchSpanProcessor(otlp_span_exporter)
         # tracer_provider.add_span_processor(span_processor)
 
-        resource = Resource(attributes={f"service.application_name": os.getenv("APPLICATION_NAME"), f"service.environment": os.getenv("ENVIRONMENT")})
+        resource = Resource(
+            attributes={
+                "service.application_name": os.getenv("APPLICATION_NAME"),
+                "service.environment": os.getenv("ENVIRONMENT"),
+            }
+        )
 
         # Create and set the logger provider
         logger_provider = LoggerProvider(resource)
         set_logger_provider(logger_provider)
 
         # Create the OTLP log exporter that sends logs to configured destination
-        http_exporter = OTLPHTTPLogExporter(endpoint=f"{OTEL_AGENT_HOSTNAME}:{HTTP_OTEL_AGENT_PORT}/v1/logs", compression=Compression.Gzip)
-        grpc_exporter = OTLPGRPCLogExporter(endpoint=f"{OTEL_AGENT_HOSTNAME}:{GRPC_OTEL_AGENT_PORT}", insecure=True, compression=Compression.Gzip.value)
+        http_exporter = OTLPHTTPLogExporter(
+            endpoint=f"{OTEL_AGENT_HOSTNAME}:{HTTP_OTEL_AGENT_PORT}/v1/logs",
+            compression=Compression.Gzip,
+        )
+        grpc_exporter = OTLPGRPCLogExporter(
+            endpoint=f"{OTEL_AGENT_HOSTNAME}:{GRPC_OTEL_AGENT_PORT}",
+            insecure=True,
+            compression=Compression.Gzip.value,
+        )
         logger_provider.add_log_record_processor(BatchLogRecordProcessor(grpc_exporter))
 
         # Attach OTLP handler to root logger

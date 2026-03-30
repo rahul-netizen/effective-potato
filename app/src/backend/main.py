@@ -4,10 +4,9 @@ import uvicorn
 from common.configuration import Configuration
 from common.logger import logger
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from health.controller import HealthRestController
 from health.manager import HealthServiceManager
 
@@ -42,4 +41,10 @@ app.add_middleware(
 app.include_router(app_router, prefix="/v1/api")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host=config_env.server_configuration.host, timeout_keep_alive=600, port=int(config_env.server_configuration.port), reload=True)
+    uvicorn.run(
+        "main:app",
+        host=config_env.server_configuration.host,
+        timeout_keep_alive=600,
+        port=int(config_env.server_configuration.port),
+        reload=True,
+    )
